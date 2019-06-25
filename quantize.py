@@ -12,7 +12,7 @@ import math
 # METHOD = 'SPLIT_FIX_TRAIN'
 METHOD = ''
 
-MAX_BIT = 8
+MAX_BIT = 1
 MAX_NUM = 256
 count_one_tensor = torch.zeros(MAX_NUM)
 for i in range(MAX_NUM):
@@ -30,11 +30,11 @@ for i in range(MAX_NUM):
     if count_one_tensor[i] > MAX_BIT:
         for j in range(MAX_NUM):
             if i + j < MAX_NUM:
-                if count_one_tensor[i + j] <= MAX_BIT:
+                if count_one_tensor[i + j] <= MAX_BIT or i + j == MAX_NUM - 1:
                     target = i + j
                     break
             if i - j >= 0:
-                if count_one_tensor[i - j] <= MAX_BIT:
+                if count_one_tensor[i - j] <= MAX_BIT or i - j == 0:
                     target = i - j
                     break
         else:
@@ -44,16 +44,20 @@ for i in range(MAX_NUM):
     src_tgt_tensor[i] = target
 
 def CountOne(tensor):
-    src = count_one_tensor.to(dtype = tensor.dtype, device = tensor.device, copy = True)
-    indices = tensor.to(dtype = torch.int64, copy = True)
+    sign_tensor = torch.sign(tensor)
+    abs_tensor = torch.abs(tensor)
+    src = count_one_tensor.to(dtype = abs_tensor.dtype, device = abs_tensor.device, copy = True)
+    indices = abs_tensor.to(dtype = torch.int64, copy = True)
     assert torch.max(indices) < MAX_NUM
     return torch.take(src, indices)
 
 def TransOne(tensor):
-    src = count_one_tensor.to(dtype = tensor.dtype, device = tensor.device, copy = True)
-    indices = tensor.to(dtype = torch.int64, copy = True)
+    sign_tensor = torch.sign(tensor)
+    abs_tensor = torch.abs(tensor)
+    src = src_tgt_tensor.to(dtype = abs_tensor.dtype, device = abs_tensor.device, copy = True)
+    indices = abs_tensor.to(dtype = torch.int64, copy = True)
     assert torch.max(indices) < MAX_NUM
-    return torch.take(src, indices)
+    return torch.mul(sign_tensor, torch.take(src, indices))
 
 # last_activation_scale, last_weight_scale 分别代表activation和weight的放缩细数
 # last_activation_bit, last_weight_bit 分别代表activation和weight的比特数
@@ -93,11 +97,7 @@ class QuantizeFunction(Function):
         output = input / scale
         output = torch.clamp(torch.round(output * thres), 0 - thres, thres - 0)
         if mode == 'weight' and METHOD == 'SPLIT_FIX_TRAIN':
-            src = src_tgt_tensor.to(dtype = output.dtype, device = output.device, copy = True)
-            indices = output.to(dtype = torch.int64, copy = True)
-            torch.max(indices) < MAX_NUM
-            a = torch.take(src, indices)
-            print(a - output)
+            output = TransOne(output)
         output = output * scale / thres
         if mode == 'weight':
             last_weight_scale = scale / thres

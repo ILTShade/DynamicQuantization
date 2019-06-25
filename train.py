@@ -93,7 +93,12 @@ def eval_net(net, test_loader, epoch, device, show_sche):
                     scale = torch.max(torch.abs(weight)).item()
                     thres = 2 ** (qbit - 1) - 1
                     output = torch.clamp(torch.round(weight * thres / scale), 0 - thres, thres - 0)
-                    one_num = one_num + quantize.CountOne(output).sum().item()
+                    if quantize.METHOD == 'SPLIT_FIX_TRAIN':
+                        one_num = one_num + quantize.CountOne(quantize.TransOne(output)).sum().item()
+                    elif quantize.METHOD == 'FIX_TRAIN':
+                        one_num = one_num + quantize.CountOne(output).sum().item()
+                    else:
+                        assert 0
                     bit_num = bit_num + (qbit - 1) * output.numel()
     # set net on gpu
     net.to(device)
