@@ -9,17 +9,29 @@ import numpy as np
 class LeNet(nn.Module):
     def __init__(self, num_classes):
         super(LeNet, self).__init__()
-        self.c1 = quantize.PowerConv2d(3, 6, 5)
+        c1_fix_config = {'input': {'mode': 'input', 'qbit': 8, 'ratio_L': 0, 'ratio_H': 1, 'momentum': 0.7},
+                         'weight': {'mode': 'weight', 'qbit': 8, 'ratio_L': 0, 'ratio_H': 1, 'momentum': 0},
+                         'output': {'mode': 'activation', 'qbit': 8, 'ratio_L': 0, 'ratio_H': 1, 'momentum': 0.7},
+                         }
+        self.c1 = quantize.QuantizePowerConv2d(c1_fix_config, 3, 6, 5)
         self.b1 = nn.BatchNorm2d(6)
         self.r1 = nn.ReLU()
         self.s1 = nn.MaxPool2d(kernel_size = 2, stride = 2)
 
-        self.c2 = quantize.PowerConv2d(6, 16, 5)
+        c2_fix_config = {'input': {'mode': 'activation', 'qbit': 8, 'ratio_L': 0, 'ratio_H': 1, 'momentum': 0.7},
+                         'weight': {'mode': 'weight', 'qbit': 8, 'ratio_L': 0, 'ratio_H': 1, 'momentum': 0},
+                         'output': {'mode': 'activation', 'qbit': 8, 'ratio_L': 0, 'ratio_H': 1, 'momentum': 0.7},
+                         }
+        self.c2 = quantize.QuantizePowerConv2d(c2_fix_config, 6, 16, 5)
         self.b2 = nn.BatchNorm2d(16)
         self.r2 = nn.ReLU()
         self.s2 = nn.MaxPool2d(kernel_size = 2, stride = 2)
 
-        self.c3 = quantize.PowerConv2d(16, 120, 5)
+        c3_fix_config = {'input': {'mode': 'activation', 'qbit': 8, 'ratio_L': 0, 'ratio_H': 1, 'momentum': 0.7},
+                         'weight': {'mode': 'weight', 'qbit': 8, 'ratio_L': 0, 'ratio_H': 1, 'momentum': 0},
+                         'output': {'mode': 'activation', 'qbit': 8, 'ratio_L': 0, 'ratio_H': 1, 'momentum': 0.7},
+                         }
+        self.c3 = quantize.QuantizePowerConv2d(c3_fix_config, 16, 120, 5)
         self.b3 = nn.BatchNorm2d(120)
         self.r3 = nn.ReLU()
 

@@ -10,15 +10,12 @@ parser.add_argument('-d', '--dataset', help = 'select dataset')
 parser.add_argument('-n', '--net', help = 'select net')
 parser.add_argument('-t', '--train', help = 'select train')
 parser.add_argument('-p', '--prefix', help = 'select prefix')
-parser.add_argument('-m', '--method', help = 'select method', choices = ['TRADITION', 'FIX_TRAIN', 'SPLIT_FIX_TRAIN'])
 args = parser.parse_args()
 assert args.gpu
 assert args.dataset
 assert args.net
 assert args.train
 assert args.prefix
-assert args.method
-quantize.METHOD = args.method
 
 # dataloader
 dataset_module = import_module(args.dataset)

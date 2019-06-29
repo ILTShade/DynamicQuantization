@@ -10,7 +10,7 @@ from tensorboardX import SummaryWriter
 global tensorboard_writer
 
 MOMENTUM = 0.9
-WEIGHT_DECAY = 0.0005
+WEIGHT_DECAY = 1e-4
 GAMMA = 0.1
 alpha = 0
 
@@ -31,8 +31,8 @@ GAMMA,
 def train_net(net, train_loader, test_loader, cate, device, prefix):
     if cate == 'train':
         lr = 0.1
-        MILESTONES = [60, 90]
-        EPOCHS = 120
+        MILESTONES = [60, 80]
+        EPOCHS = 100
     else:
         assert 0
     global tensorboard_writer
@@ -41,22 +41,10 @@ def train_net(net, train_loader, test_loader, cate, device, prefix):
     net.to(device)
     # loss and optimizer
     criterion = nn.CrossEntropyLoss()
-    # 用来将scale的学习率和weight_decay均置为0
-    standard_params = []
-    individu_params = []
-    for param in net.parameters():
-        if (param.size() == torch.Size([1])):
-            individu_params.append(param)
-        else:
-            standard_params.append(param)
-    optimizer = optim.SGD([
-                           {'params': individu_params, 'lr': 0., 'weight_decay': 0.},
-                           {'params': standard_params, 'lr': lr, 'weight_decay': WEIGHT_DECAY},
-                           ], momentum = MOMENTUM)
-    # optimizer = optim.SGD(net.parameters(), lr = lr, weight_decay = WEIGHT_DECAY, momentum = MOMENTUM)
+    optimizer = optim.SGD(net.parameters(), lr = lr, weight_decay = WEIGHT_DECAY, momentum = MOMENTUM)
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones = MILESTONES, gamma = GAMMA)
     # initial test
-    # eval_net(net, test_loader, 0, device, 0)
+    eval_net(net, test_loader, 0, device, 0)
     # epochs
     for epoch in range(EPOCHS):
         # train
@@ -66,8 +54,8 @@ def train_net(net, train_loader, test_loader, cate, device, prefix):
             net.zero_grad()
             images = images.to(device)
             labels = labels.to(device)
-            outputs, power = net(images)
-            loss = criterion(outputs, labels) + alpha * power
+            outputs = net(images)
+            loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
             print(f'epoch {epoch+1:3d}, {i:3d}|{len(train_loader):3d}, loss: {loss.item():2.4f}', end = '\r')
@@ -85,24 +73,21 @@ def eval_net(net, test_loader, epoch, device, show_sche):
     net.eval()
     test_correct = 0
     test_total = 0
-    power_total = 0
     with torch.no_grad():
         for i, (images, labels) in enumerate(test_loader):
             if show_sche == 1:
                 print(f'{i:3d} / {len(test_loader):3d}')
             images = images.to(device)
             test_total += labels.size(0)
-            outputs, power = net(images)
-            power_total += power.item()
+            outputs = net(images)
             # predicted
             labels = labels.to(device)
             _, predicted = torch.max(outputs, 1)
             test_correct += (predicted == labels).sum().item()
-    print('%s After epoch %d, accuracy is %2.4f, power is %f' % \
-          (time.asctime(time.localtime(time.time())), epoch, test_correct / test_total, power_total))
+    print('%s After epoch %d, accuracy is %2.4f' % \
+          (time.asctime(time.localtime(time.time())), epoch, test_correct / test_total))
     if show_sche == 0:
         tensorboard_writer.add_scalars('test_acc', {'test_acc': test_correct / test_total}, epoch)
-        tensorboard_writer.add_scalars('power', {'power': power_total}, epoch)
     return test_correct / test_total
 
 if __name__ == '__main__':
