@@ -12,6 +12,7 @@ global tensorboard_writer
 MOMENTUM = 0.9
 WEIGHT_DECAY = 0.0005
 GAMMA = 0.1
+alpha = 5e-9
 
 TRAIN_PARAMETER = '''\
 # TRAIN_PARAMETER
@@ -30,8 +31,6 @@ GAMMA,
 def train_net(net, train_loader, test_loader, cate, device, prefix):
     if cate == 'train':
         lr = 0.1
-        # MILESTONES = [150, 250]
-        # EPOCHS = 350
         MILESTONES = [60, 90]
         EPOCHS = 120
     else:
@@ -57,7 +56,7 @@ def train_net(net, train_loader, test_loader, cate, device, prefix):
     # optimizer = optim.SGD(net.parameters(), lr = lr, weight_decay = WEIGHT_DECAY, momentum = MOMENTUM)
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones = MILESTONES, gamma = GAMMA)
     # initial test
-    # eval_net(net, test_loader, 0, device, 0)
+    eval_net(net, test_loader, 0, device, 0)
     # epochs
     for epoch in range(EPOCHS):
         # train
@@ -67,8 +66,8 @@ def train_net(net, train_loader, test_loader, cate, device, prefix):
             net.zero_grad()
             images = images.to(device)
             labels = labels.to(device)
-            outputs = net(images)
-            loss = criterion(outputs, labels)
+            outputs, power = net(images)
+            loss = criterion(outputs, labels) + alpha * power
             loss.backward()
             optimizer.step()
             print(f'epoch {epoch+1:3d}, {i:3d}|{len(train_loader):3d}, loss: {loss.item():2.4f}', end = '\r')
@@ -81,45 +80,29 @@ def train_net(net, train_loader, test_loader, cate, device, prefix):
 # 2 代表单纯测试，不显示进度，不记录
 
 def eval_net(net, test_loader, epoch, device, show_sche):
-    # 统计网络权重中1个数
-    one_num = 0
-    bit_num = 0
-    if quantize.METHOD == 'FIX_TRAIN' or quantize.METHOD == 'SPLIT_FIX_TRAIN':
-        with torch.no_grad():
-            for module in net.modules():
-                if isinstance(module, quantize.QuantizeConv2d):
-                    qbit = module.weight_spec_bit
-                    weight = module.conv2d.weight
-                    scale = torch.max(torch.abs(weight)).item()
-                    thres = 2 ** (qbit - 1) - 1
-                    output = torch.clamp(torch.round(weight * thres / scale), 0 - thres, thres - 0)
-                    if quantize.METHOD == 'SPLIT_FIX_TRAIN':
-                        one_num = one_num + quantize.CountOne(quantize.TransOne(output)).sum().item()
-                    elif quantize.METHOD == 'FIX_TRAIN':
-                        one_num = one_num + quantize.CountOne(output).sum().item()
-                    else:
-                        assert 0
-                    bit_num = bit_num + (qbit - 1) * output.numel()
     # set net on gpu
     net.to(device)
     net.eval()
     test_correct = 0
     test_total = 0
+    power_total = 0
     with torch.no_grad():
         for i, (images, labels) in enumerate(test_loader):
             if show_sche == 1:
                 print(f'{i:3d} / {len(test_loader):3d}')
             images = images.to(device)
             test_total += labels.size(0)
-            outputs = net(images)
+            outputs, power = net(images)
+            power_total += power.item()
             # predicted
             labels = labels.to(device)
             _, predicted = torch.max(outputs, 1)
             test_correct += (predicted == labels).sum().item()
-    print('%s After epoch %d, accuracy is %2.4f, one is %06d/%06d' % \
-          (time.asctime(time.localtime(time.time())), epoch, test_correct / test_total, one_num, bit_num))
+    print('%s After epoch %d, accuracy is %2.4f, power is %f' % \
+          (time.asctime(time.localtime(time.time())), epoch, test_correct / test_total, power_total))
     if show_sche == 0:
         tensorboard_writer.add_scalars('test_acc', {'test_acc': test_correct / test_total}, epoch)
+        tensorboard_writer.add_scalars('power', {'power': power_total}, epoch)
     return test_correct / test_total
 
 if __name__ == '__main__':
