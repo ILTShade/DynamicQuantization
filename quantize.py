@@ -8,6 +8,7 @@ import torch.nn.functional as F
 import math
 import copy
 
+# power
 power_scale = 1
 
 # 在本次的实验假设中，对输入定点，对权重定点，对输出定点
