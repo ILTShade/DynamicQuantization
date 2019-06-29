@@ -12,7 +12,6 @@ global tensorboard_writer
 MOMENTUM = 0.9
 WEIGHT_DECAY = 1e-4
 GAMMA = 0.1
-alpha = 0
 
 TRAIN_PARAMETER = '''\
 # TRAIN_PARAMETER
@@ -41,10 +40,22 @@ def train_net(net, train_loader, test_loader, cate, device, prefix):
     net.to(device)
     # loss and optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(net.parameters(), lr = lr, weight_decay = WEIGHT_DECAY, momentum = MOMENTUM)
+    # 用来将scale的学习率和weight_decay均置为0
+    standard_params = []
+    individu_params = []
+    for param in net.parameters():
+        if (param.size() == torch.Size([1])):
+            individu_params.append(param)
+        else:
+            standard_params.append(param)
+    optimizer = optim.SGD([
+                           {'params': individu_params, 'lr': 0., 'weight_decay': 0.},
+                           {'params': standard_params, 'lr': lr, 'weight_decay': WEIGHT_DECAY},
+                           ], momentum = MOMENTUM)
+    # optimizer = optim.SGD(net.parameters(), lr = lr, weight_decay = WEIGHT_DECAY, momentum = MOMENTUM)
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones = MILESTONES, gamma = GAMMA)
     # initial test
-    eval_net(net, test_loader, 0, device, 0)
+    # eval_net(net, test_loader, 0, device, 0)
     # epochs
     for epoch in range(EPOCHS):
         # train
