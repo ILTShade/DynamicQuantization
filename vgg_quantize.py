@@ -6,7 +6,7 @@ import torch.nn as nn
 import numpy as np
 
 weight_bit = 8
-activation_bit = 8
+activation_bit = 5
 ratio_L = 0
 ratio_H = 1
 momentum = 0.707
