@@ -5,18 +5,17 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-activation_bit = 5
-weight_bit = 5
-ratio = 1.0
+activation_bit = 8
+weight_bit = 8
 momentum = 0.707
 
-input_fix_config = {'input': {'mode': 'input', 'qbit': None, 'ratio': None, 'momentum': None},
-                    'weight': {'mode': 'weight', 'qbit': weight_bit, 'ratio': 1, 'momentum': None},
-                    'output': {'mode': 'activation', 'qbit': activation_bit, 'ratio': ratio, 'momentum': momentum},
+input_fix_config = {'input': {'mode': 'input'},
+                    'weight': {'mode': 'weight', 'qbit': weight_bit},
+                    'output': {'mode': 'activation_out', 'qbit': activation_bit, 'momentum': momentum},
                     }
-hidden_fix_config = {'input': {'mode': 'activation', 'qbit': activation_bit, 'ratio': ratio, 'momentum': momentum},
-                     'weight': {'mode': 'weight', 'qbit': weight_bit, 'ratio': 1, 'momentum': None},
-                     'output': {'mode': 'activation', 'qbit': activation_bit, 'ratio': ratio, 'momentum': momentum},
+hidden_fix_config = {'input': {'mode': 'activation_in', 'qbit': activation_bit, 'momentum': momentum},
+                     'weight': {'mode': 'weight', 'qbit': weight_bit},
+                     'output': {'mode': 'activation_out', 'qbit': activation_bit, 'momentum': momentum},
                      }
 
 class VGGA(nn.Module):
