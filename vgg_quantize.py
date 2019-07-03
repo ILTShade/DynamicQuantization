@@ -5,19 +5,18 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-weight_bit = 8
 activation_bit = 5
-ratio_L = 0
-ratio_H = 1
+weight_bit = 5
+ratio = 1.0
 momentum = 0.707
 
-input_fix_config = {'input': {'mode': 'input', 'qbit': None, 'ratio_L': None, 'ratio_H': None, 'momentum': None},
-                    'weight': {'mode': 'weight', 'qbit': weight_bit, 'ratio_L': 0, 'ratio_H': 1, 'momentum': None},
-                    'output': {'mode': 'activation', 'qbit': activation_bit, 'ratio_L': ratio_L, 'ratio_H': ratio_H, 'momentum': momentum},
+input_fix_config = {'input': {'mode': 'input', 'qbit': None, 'ratio': None, 'momentum': None},
+                    'weight': {'mode': 'weight', 'qbit': weight_bit, 'ratio': 1, 'momentum': None},
+                    'output': {'mode': 'activation', 'qbit': activation_bit, 'ratio': ratio, 'momentum': momentum},
                     }
-hidden_fix_config = {'input': {'mode': 'activation', 'qbit': activation_bit, 'ratio_L': ratio_L, 'ratio_H': ratio_H, 'momentum': momentum},
-                     'weight': {'mode': 'weight', 'qbit': weight_bit, 'ratio_L': 0, 'ratio_H': 1, 'momentum': None},
-                     'output': {'mode': 'activation', 'qbit': activation_bit, 'ratio_L': ratio_L, 'ratio_H': ratio_H, 'momentum': momentum},
+hidden_fix_config = {'input': {'mode': 'activation', 'qbit': activation_bit, 'ratio': ratio, 'momentum': momentum},
+                     'weight': {'mode': 'weight', 'qbit': weight_bit, 'ratio': 1, 'momentum': None},
+                     'output': {'mode': 'activation', 'qbit': activation_bit, 'ratio': ratio, 'momentum': momentum},
                      }
 
 class VGGA(nn.Module):

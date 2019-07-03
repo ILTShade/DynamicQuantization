@@ -22,6 +22,7 @@ BANK_size = (8, 8)
 
 # net
 net_module = import_module(args.net)
+activation_bit = net_module.activation_bit
 weight_bit = net_module.weight_bit
 net = net_module.get_net()
 net.load_state_dict(torch.load(args.weight))
@@ -51,6 +52,9 @@ with torch.no_grad():
             tmp_define['Stride'] = module.conv2d.stride[0]
             tmp_define['Inputchannel'] = module.conv2d.in_channels
             tmp_define['Outputchannel'] = module.conv2d.out_channels
+            tmp_define['Inputbit'] = activation_bit
+            tmp_define['Weightbit'] = weight_bit
+            tmp_define['Outputbit'] = activation_bit
             module_define[name] = tmp_define
             print('generate %s' % name)
             # test

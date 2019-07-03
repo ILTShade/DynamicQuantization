@@ -1,12 +1,9 @@
 #!/home/sunhanbo/software/anaconda3/bin/python
 #-*-coding:utf-8-*-
-import pdb
 import torch
 import torch.nn as nn
 from torch.autograd import Function
 import torch.nn.functional as F
-import math
-import copy
 
 # power scale record
 power_scale = 1
@@ -36,19 +33,13 @@ class QuantizeFunction(Function):
             raise NotImplementedError
         # transfer info
         qbit = fix_config['qbit']
-        ratio_L = fix_config['ratio_L']
-        ratio_H = fix_config['ratio_H']
+        ratio = fix_config['ratio']
         thres = 2 ** (qbit - 1) - 1
-        x_range = thres / (ratio_H - ratio_L)
+        scale = scale * ratio
         global power_scale
         power_scale = power_scale * scale
         # transfer
-        output = input / scale
-        output_sign = torch.sign(output)
-        output_value = torch.abs(output)
-        output_value[output_value > ratio_H] = 1
-        output_value[output_value < ratio_L] = 0
-        return torch.round(output_value * x_range) * output_sign * scale / x_range
+        return output.div_(scale).clamp_(-1, 1).mul_(thres).round_().div_(thres).mul_(scale)
     @staticmethod
     def backward(ctx, grad_output):
         return grad_output, None, None, None, None
@@ -60,8 +51,8 @@ class QuantizeConv2d(nn.Module):
                  stride = 1, padding = 0, dilation = 1, groups = 1, bias = True):
         super(QuantizeConv2d, self).__init__()
         self.conv2d = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias)
-        self.last_value_input = nn.Parameter(torch.zeros((1)))
-        self.last_value_output = nn.Parameter(torch.zeros((1)))
+        self.last_value_input = nn.Parameter(torch.ones((1)))
+        self.last_value_output = nn.Parameter(torch.ones((1)))
         self.input_fix_config = fix_config_dict['input']
         self.weight_fix_config = fix_config_dict['weight']
         self.output_fix_config = fix_config_dict['output']
@@ -69,11 +60,10 @@ class QuantizeConv2d(nn.Module):
         # dynamic quantize
         global power_scale
         global real_power_scale
+        power_scale = 1
         if self.input_fix_config['mode'] == 'input':
-            power_scale = 255
             quantize_input = x
         else:
-            power_scale = 1
             quantize_input = Quantize(x,
                                       self.input_fix_config,
                                       self.training,
@@ -124,7 +114,7 @@ class QuantizePowerConv2d(nn.Module):
         global power_scale
         global real_power_scale
         if self.input_fix_config['mode'] == 'input':
-            power_scale = 255
+            power_scale = 1
             quantize_input = x
         else:
             power_scale = 1
