@@ -6,7 +6,7 @@ from torch.autograd import Function
 import torch.nn.functional as F
 
 # power scale record
-power_scale = 1
+power_scale = 0
 # 在本次的实验假设中，对输入定点，对权重定点，对输出定点
 # 但是不要求前一层的输出一定是下一层的输入
 # 不需要保留定点的系数，保留相关结果即可
@@ -29,7 +29,7 @@ class QuantizeFunction(Function):
             scale = last_value.item()
             thres = 2 ** (fix_config['qbit']) - 1
             output = torch.div(input, scale)
-            power_scale = scale
+            power_scale = scale**2
             return output.clamp_(0, 1).mul_(thres).round_().div(thres/scale)
         elif fix_config['mode'] == 'weight':
             # 此部分对权重做变换，直接采用最大值，可以尽可能少地产生误差，网络权重有正有负
@@ -49,7 +49,7 @@ class QuantizeFunction(Function):
             output = torch.div(input, scale)
             # thres = 2 ** (fix_config['qbit'] - 1) - 1
             # return output.clamp_(-1, 1).mul_(thres).round_().div(thres/scale)
-            ratio = 1
+            ratio = 3.5
             thres = 2 ** (fix_config['qbit'])
             return output.mul_(ratio).sigmoid_().mul_(thres).round_().clamp_(1, thres - 1).div_(thres).reciprocal_().sub_(1).log_().div(-ratio/scale)
         else:
@@ -116,7 +116,7 @@ class QuantizePowerConv2d(nn.Module):
         self.input_fix_config = fix_config_dict['input']
         self.weight_fix_config = fix_config_dict['weight']
         self.output_fix_config = fix_config_dict['output']
-    def forward(self, x):
+    def forward(self, x, power):
         # dynamic quantize
         quantize_input = Quantize(x,
                                   self.input_fix_config,
@@ -142,28 +142,31 @@ class QuantizePowerConv2d(nn.Module):
                                    self.last_value_output,
                                    )
         # power
-        if self.training:
-            norm_x = quantize_input / torch.mean(torch.abs(quantize_input))
-            norm_w = quantize_weight / torch.mean(torch.abs(quantize_weight))
-            square_sum = F.conv2d(torch.mul(norm_x, norm_x),
-                                  torch.abs(norm_w),
-                                  None,
-                                  self.conv2d.stride,
-                                  self.conv2d.padding,
-                                  self.conv2d.dilation,
-                                  self.conv2d.groups,
-                                  )
-        else:
-            square_sum = F.conv2d(torch.mul(quantize_input, quantize_input),
-                                  torch.abs(quantize_weight),
-                                  None,
-                                  self.conv2d.stride,
-                                  self.conv2d.padding,
-                                  self.conv2d.dilation,
-                                  self.conv2d.groups,
-                                  )
-            square_sum = square_sum / real_power_scale
-        return quantize_output, torch.sum(square_sum)
+        # if self.training:
+        #     norm_x = quantize_input / torch.mean(torch.abs(quantize_input))
+        #     norm_w = quantize_weight / torch.mean(torch.abs(quantize_weight))
+        #     # norm_x = x / torch.mean(torch.abs(x))
+        #     # norm_w = self.conv2d.weight / torch.mean(torch.abs(self.conv2d.weight))
+        #     square_sum = F.conv2d(torch.mul(norm_x, norm_x),
+        #                           torch.abs(norm_w),
+        #                           None,
+        #                           self.conv2d.stride,
+        #                           self.conv2d.padding,
+        #                           self.conv2d.dilation,
+        #                           self.conv2d.groups,
+        #                           )
+        # else:
+        square_sum = F.conv2d(torch.mul(quantize_input, quantize_input),
+                              torch.abs(quantize_weight),
+                              None,
+                              self.conv2d.stride,
+                              self.conv2d.padding,
+                              self.conv2d.dilation,
+                              self.conv2d.groups,
+                              )
+        square_sum = square_sum / power_scale
+        power.add_(torch.sum(square_sum))
+        return quantize_output
     def extra_repr(self):
         extra_def = []
         for name, config in zip(['input', 'weight', 'output'], [self.input_fix_config, self.weight_fix_config, self.output_fix_config]):

@@ -18,7 +18,7 @@ assert args.weight
 # crossbar的尺寸，PE的尺寸指成对出现的crossbar数量，BANK尺寸指BANK二维大小
 crossbar_size = 256
 PE_size = 8
-BANK_size = (8, 8)
+BANK_size = (4, 4)
 
 # net
 net_module = import_module(args.net)
@@ -31,12 +31,15 @@ net.load_state_dict(torch.load(args.weight))
 ASIC_ARRAY = []
 module_define = collections.OrderedDict()
 input_size = 32
+layer_count = 0
 with torch.no_grad():
     for name, module in net.named_modules():
         if isinstance(module, nn.MaxPool2d):
-            output_size = input_size / 2
+            output_size = int(input_size / 2)
         else:
             output_size = input_size
+        if isinstance(module, quantize.QuantizeConv2d) or isinstance(module, quantize.QuantizePowerConv2d):
+            output_size = int(math.ceil((input_size + 2*module.conv2d.padding[0] - module.conv2d.kernel_size[0])/module.conv2d.stride[0]) + 1)
         if isinstance(module, quantize.QuantizeConv2d) or isinstance(module, quantize.QuantizePowerConv2d):
             weight = module.conv2d.weight
             scale = torch.max(torch.abs(weight))
@@ -78,6 +81,7 @@ with torch.no_grad():
             W = weight.size(1)
             H_range = math.ceil(H / (BANK_size[0] * crossbar_size))
             W_range = math.ceil(W / (BANK_size[1] * crossbar_size))
+            CrossArray = []
             for h in range(H_range):
                 for w in range(W_range):
                     base_h = h * BANK_size[0] * crossbar_size
@@ -87,9 +91,7 @@ with torch.no_grad():
                     # BANK内部
                     split_h_range = math.ceil(total_h/crossbar_size)
                     split_w_range = math.ceil(total_w/crossbar_size)
-                    BANK_array = []
                     for split_h in range(split_h_range):
-                        BANK_row_array = []
                         for split_w in range(split_w_range):
                             PE_array = []
                             split_base_h = base_h + split_h*crossbar_size
@@ -101,10 +103,32 @@ with torch.no_grad():
                                 tmp_positive = sign_weight_list[i][0][split_base_h:(split_base_h+total_split_h),split_base_w:(split_base_w+total_split_w)].clone()
                                 tmp_negative = sign_weight_list[i][1][split_base_h:(split_base_h+total_split_h),split_base_w:(split_base_w+total_split_w)].clone()
                                 PE_array.append([tmp_positive.numpy().astype(np.uint8), tmp_negative.numpy().astype(np.uint8)])
-                            BANK_row_array.append(PE_array)
-                        BANK_array.append(BANK_row_array)
-                ASIC_ARRAY.append(BANK_array)
+                            CrossArray.append(PE_array)
+            A = math.ceil(len(CrossArray) / (BANK_size[0]*BANK_size[1]))
+            for i in range(A):
+                BANK_array = []
+                for j in range(BANK_size[0]):
+                    for k in range(BANK_size[1]):
+                        index = i * (BANK_size[0]*BANK_size[1]) + j*(BANK_size[1])+k
+                        if index > len(CrossArray) - 1:
+                            continue
+                        BANK_array.append(CrossArray[index])
+                layer_info = collections.OrderedDict()
+                layer_info['Layernum'] = layer_count
+                layer_info['Inputsize'] = input_size
+                layer_info['Outputsize'] = output_size
+                layer_info['Kernelsize'] = module.conv2d.kernel_size[0]
+                layer_info['Stride'] = module.conv2d.stride[0]
+                layer_info['Inputchannel'] = module.conv2d.in_channels
+                layer_info['Outputchannel'] = module.conv2d.out_channels
+                layer_info['Inputbit'] = activation_bit
+                layer_info['Weightbit'] = weight_bit
+                layer_info['Outputbit'] = activation_bit
+                print(layer_info)
+                print(len(BANK_array))
+                ASIC_ARRAY.append((layer_info, BANK_array))
+            layer_count += 1
         input_size = output_size
 
-    torch.save(ASIC_ARRAY, './zoo/mnism_weight.pt')
-    torch.save(module_define, './zoo/mnism_net.pt')
+    torch.save(ASIC_ARRAY, './zoo/mnsim_weight.pt')
+    torch.save(module_define, './zoo/mnsim_net.pt')

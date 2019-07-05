@@ -10,7 +10,7 @@ from tensorboardX import SummaryWriter
 global tensorboard_writer
 
 MOMENTUM = 0.9
-WEIGHT_DECAY = 0.0005
+WEIGHT_DECAY = 1e-4
 GAMMA = 0.1
 alpha = 0
 
