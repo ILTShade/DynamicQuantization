@@ -31,7 +31,7 @@ GAMMA,
 def train_net(net, train_loader, test_loader, cate, device, prefix):
     if cate == 'train':
         lr = 0.1
-        MILESTONES = [60, 90]
+        MILESTONES = [40, 80]
         EPOCHS = 120
     else:
         assert 0
@@ -71,7 +71,7 @@ def train_net(net, train_loader, test_loader, cate, device, prefix):
             loss.backward()
             optimizer.step()
             print(f'epoch {epoch+1:3d}, {i:3d}|{len(train_loader):3d}, loss: {loss.item():2.4f}', end = '\r')
-            tensorboard_writer.add_scalars('train_loss', {'train_loss': loss.item()}, epoch * len(train_loader) + i)
+            tensorboard_writer.add_scalar('train_loss', loss.item(), epoch * len(train_loader) + i)
         eval_net(net, test_loader, epoch + 1, device, 0)
         torch.save(net.state_dict(), f'zoo/{prefix}_params.pth')
 
@@ -101,8 +101,8 @@ def eval_net(net, test_loader, epoch, device, show_sche):
     print('%s After epoch %d, accuracy is %2.4f, power is %f' % \
           (time.asctime(time.localtime(time.time())), epoch, test_correct / test_total, power_total))
     if show_sche == 0:
-        tensorboard_writer.add_scalars('test_acc', {'test_acc': test_correct / test_total}, epoch)
-        tensorboard_writer.add_scalars('power', {'power': power_total}, epoch)
+        tensorboard_writer.add_scalar('test_acc', test_correct / test_total, epoch)
+        tensorboard_writer.add_scalar('power', power_total, epoch)
     return test_correct / test_total
 
 if __name__ == '__main__':
