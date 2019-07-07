@@ -6,7 +6,7 @@ import torch.nn as nn
 import numpy as np
 
 activation_bit = 4
-weight_bit = 8
+weight_bit = 4
 momentum = 0.707
 
 input_fix_config = {'input': {'mode': 'input'},

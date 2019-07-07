@@ -54,7 +54,7 @@ def train_net(net, train_loader, test_loader, cate, device, prefix):
                            ], momentum = MOMENTUM)
     # optimizer = optim.SGD(net.parameters(), lr = lr, weight_decay = WEIGHT_DECAY, momentum = MOMENTUM)
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones = MILESTONES, gamma = GAMMA)
-    net.load_state_dict(torch.load('./zoo/SIGMA_a4_w8_params.pth'))
+    net.load_state_dict(torch.load('./zoo/TTT2_params.pth'))
     # initial test
     eval_net(net, test_loader, 0, device, 1)
     # epochs

@@ -12,7 +12,7 @@ global tensorboard_writer
 MOMENTUM = 0.9
 WEIGHT_DECAY = 1e-4
 GAMMA = 0.1
-alpha = 6e-11
+alpha = 4e-10
 
 TRAIN_PARAMETER = '''\
 # TRAIN_PARAMETER

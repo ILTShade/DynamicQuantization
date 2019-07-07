@@ -33,7 +33,8 @@ class QuantizeFunction(Function):
             return output.clamp_(0, 1).mul_(thres).round_().div(thres/scale)
         elif fix_config['mode'] == 'weight':
             # 此部分对权重做变换，直接采用最大值，可以尽可能少地产生误差，网络权重有正有负
-            scale = torch.max(torch.abs(input))
+            # scale = torch.max(torch.abs(input))
+            scale = 3*torch.std(input).item()
             thres = 2 ** (fix_config['qbit'] - 1) - 1
             output = torch.div(input, scale)
             power_scale *= scale
@@ -49,7 +50,7 @@ class QuantizeFunction(Function):
             output = torch.div(input, scale)
             # thres = 2 ** (fix_config['qbit'] - 1) - 1
             # return output.clamp_(-1, 1).mul_(thres).round_().div(thres/scale)
-            ratio = 3.5
+            ratio = 3.8
             thres = 2 ** (fix_config['qbit'])
             return output.mul_(ratio).sigmoid_().mul_(thres).round_().clamp_(1, thres - 1).div_(thres).reciprocal_().sub_(1).log_().div(-ratio/scale)
         else:
