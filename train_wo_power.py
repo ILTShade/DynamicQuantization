@@ -69,7 +69,7 @@ def train_net(net, train_loader, test_loader, cate, device, prefix):
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
-            print(f'epoch {epoch+1:3d}, {i:3d}|{len(train_loader):3d}, loss: {loss.item():2.4f}', end = '\r')
+            # print(f'epoch {epoch+1:3d}, {i:3d}|{len(train_loader):3d}, loss: {loss.item():2.4f}', end = '\r')
             tensorboard_writer.add_scalar('train_loss', loss.item(), epoch * len(train_loader) + i)
         eval_net(net, test_loader, epoch, device, 0)
         torch.save(net.state_dict(), f'zoo/{prefix}_params.pth')
