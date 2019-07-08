@@ -9,25 +9,47 @@ ActivationRange = [8, 6, 4]
 WeightRange = [8, 6, 4]
 
 TaskList = []
+
+# PA部分实验总结
+# for net_class in NetClass:
+#     # float
+#     PREFIX = 'PA_%s_BASELINE' % net_class
+#     CMD = './synthesize.py -g %%d -d cifar10 -n %s -t train_wo_power -p %s 2>&1 > %s.log.txt &' % (net_class + '_float', PREFIX, PREFIX)
+#     TaskList.append((CMD, PREFIX))
+#     net_module = net_class + '_quantize'
+#     for activation_bit in ActivationRange:
+#         for weight_bit in WeightRange:
+#             PREFIX = 'PA_%s_MAX_A%dW%d' % (net_class, activation_bit, weight_bit)
+#             if activation_bit == 8 and weight_bit == 8:
+#                 CMD = './synthesize.py -g %%d -d cifar10 -n %s -t train_wo_power -ab 8 -wb 8 -p %s' % (net_module, PREFIX)
+#             else:
+#                 CMD = './synthesize.py -g %%d -d cifar10 -n %s -t finetune_wo_power -ab %d -wb %d -w zoo/PA_%s_MAX_A8W8_params.pth -p %s 2>&1 > %s.log.txt &' % \
+#                       (net_module, activation_bit, weight_bit, net_class, PREFIX, PREFIX)
+#             CMD += (' 2>&1 > %s.log.txt &' % PREFIX)
+#             TaskList.append((CMD, PREFIX))
+# TaskWait = [-1, -1] + [1]*8 + [-1, -1] + [11]*8 + [-1, -1] + [21]*8
+# TaskReady = [0]*len(TaskList)
+
+# PB部分实验生成
 for net_class in NetClass:
-    # float
-    PREFIX = 'PA_%s_BASELINE' % net_class
-    CMD = './synthesize.py -g %%d -d cifar10 -n %s -t train_wo_power -p %s 2>&1 > %s.log.txt &' % (net_class + '_float', PREFIX, PREFIX)
-    TaskList.append((CMD, PREFIX))
     net_module = net_class + '_quantize'
     for activation_bit in ActivationRange:
         for weight_bit in WeightRange:
-            PREFIX = 'PA_%s_MAX_A%dW%d' % (net_class, activation_bit, weight_bit)
+            PREFIX = 'PB_%s_3SIGMA_A%dW%d' % (net_class, activation_bit, weight_bit)
             if activation_bit == 8 and weight_bit == 8:
                 CMD = './synthesize.py -g %%d -d cifar10 -n %s -t train_wo_power -ab 8 -wb 8 -p %s' % (net_module, PREFIX)
             else:
-                CMD = './synthesize.py -g %%d -d cifar10 -n %s -t finetune_wo_power -ab %d -wb %d -w zoo/PA_%s_MAX_A8W8_params.pth -p %s 2>&1 > %s.log.txt &' % \
-                      (net_module, activation_bit, weight_bit, net_class, PREFIX, PREFIX)
-            CMD += (' 2>&1 > %s.log.txt &' % PREFIX)
+                CMD = './synthesize.py -g %%d -d cifar10 -n %s -t finetune_wo_power -ab %d -wb %d -w zoo/PB_%s_3SIGMA_A8W8_params.pth -p %s' % \
+                      (net_module, activation_bit, weight_bit, net_class, PREFIX)
+            CMD += (' 2>&1 > log/%s.log &' % PREFIX)
             TaskList.append((CMD, PREFIX))
-
-TaskWait = [-1, -1] + [1]*8 + [-1, -1] + [11]*8 + [-1, -1] + [21]*8
+TaskWait = [-1] + [0]*8 + [-1] + [9]*8 + [-1] + [18]*8
 TaskReady = [0]*len(TaskList)
+
+
+# test
+for task, wait, ready in zip(TaskList, TaskWait, TaskReady):
+    print(task, wait, ready)
 
 OccupyList = ['', '', '', '']
 while True:
@@ -63,7 +85,6 @@ while True:
     if task_id != -1:
         CMD = TaskList[task_id][0] % gpu_id
         print('start %s' % TaskList[task_id][1])
-        print(CMD)
         os.system(CMD)
         TaskReady[task_id] = 0.5
         OccupyList[gpu_id] = TaskList[task_id][1]

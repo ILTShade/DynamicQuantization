@@ -27,14 +27,15 @@ class QuantizeFunction(Function):
                 momentum = fix_config['momentum']
                 last_value.data[0] = momentum * last_value.item() + (1 - momentum) * torch.max(torch.abs(input)).item()
             scale = last_value.item()
-            thres = 2 ** (fix_config['qbit'] - 1) - 1
+            thres = 2 ** (fix_config['qbit']) - 1
             output = torch.div(input, scale)
             power_scale = scale**2
-            return output.clamp_(-1, 1).mul_(thres).round_().div(thres/scale)
+            assert torch.min(output).item() >= 0
+            return output.clamp_(0, 1).mul_(thres).round_().div(thres/scale)
         elif fix_config['mode'] == 'weight':
             # 此部分对权重做变换，直接采用最大值，可以尽可能少地产生误差，网络权重有正有负
-            scale = torch.max(torch.abs(input))
-            # scale = 3*torch.std(input).item()
+            scale = torch.max(torch.abs(input)).item()
+            # scale = 3*torch.std(input).item() + torch.abs(torch.mean(input)).item()
             thres = 2 ** (fix_config['qbit'] - 1) - 1
             output = torch.div(input, scale)
             power_scale *= scale
@@ -45,9 +46,9 @@ class QuantizeFunction(Function):
             # 不需要对power_scale进行处理
             if training:
                 momentum = fix_config['momentum']
-                last_value.data[0] = momentum * last_value.item() + (1 - momentum) * torch.max(torch.abs(input)).item()
-            # scale = 3 * last_value.item()
+                last_value.data[0] = momentum * last_value.item() + (1 - momentum) * (3*torch.std(input).item() + torch.abs(torch.mean(input)).item())
             scale = last_value.item()
+            # scale = last_value.item()
             thres = 2 ** (fix_config['qbit'] - 1) - 1
             output = torch.div(input, scale)
             return output.clamp_(-1, 1).mul_(thres).round_().div(thres/scale)
