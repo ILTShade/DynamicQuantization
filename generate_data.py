@@ -2,9 +2,9 @@
 #-*-coding:utf-8-*-
 import torch
 import numpy as np
-f = open('./zoo/data_analysis.txt', 'w')
+# f = open('./zoo/data_analysis.txt', 'w')
 
-DATA = torch.load('./zoo/DATA.pt')
+DATA = torch.load('/home/sunhanbo/backup/DynamicQuantization/190707/zoo/DATA.pt')
 D = []
 for i in range(7):
     D.append(torch.cat([DATA[j][i] for j in range(100)], dim = 0))
@@ -12,6 +12,12 @@ for i in range(7):
 max_value = []
 for i in range(7):
     max_value.append(torch.max(torch.abs(D[i])))
+
+for i in range(7):
+    range_max = torch.max(torch.abs(D[i])).item()
+    range_3sigma = torch.abs(torch.mean(D[i])).item() + 3*torch.std(D[i]).item()
+    print(range_max, range_3sigma, range_max / range_3sigma)
+xxx
 
 scale = [1, 1./2, 1./4, 1./8, 1./16]
 f.write('data distribution\n')
