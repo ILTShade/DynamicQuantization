@@ -49,12 +49,16 @@ class QuantizeFunction(Function):
                 last_value.data[0] = momentum * last_value.item() + (1 - momentum) * (3*torch.std(input).item() + torch.abs(torch.mean(input)).item())
             scale = last_value.item()
             # scale = last_value.item()
-            thres = 2 ** (fix_config['qbit'] - 1) - 1
+            # thres = 2 ** (fix_config['qbit'] - 1) - 1
+            # output = torch.div(input, scale)
+            # return output.clamp_(-1, 1).mul_(thres).round_().div(thres/scale)
+            ratio = 3.8
+            thres = 2 ** (fix_config['qbit'])
+            output = torch.div(input, scale)
+            output = output.mul_(ratio).sigmoid_().mul_(thres).round_().clamp_(1, thres - 1).div_(thres).reciprocal_().sub_(1).log_().div(-ratio/scale)
+            thres = 2 ** (2 * fix_config['qbit'] - 1) - 1
             output = torch.div(input, scale)
             return output.clamp_(-1, 1).mul_(thres).round_().div(thres/scale)
-            # ratio = 3.8
-            # thres = 2 ** (fix_config['qbit'])
-            # return output.mul_(ratio).sigmoid_().mul_(thres).round_().clamp_(1, thres - 1).div_(thres).reciprocal_().sub_(1).log_().div(-ratio/scale)
         else:
             raise NotImplementedError
     @staticmethod

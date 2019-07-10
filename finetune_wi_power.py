@@ -31,7 +31,7 @@ GAMMA,
 def train_net(net, train_loader, test_loader, cate, device, prefix, pretrain_weight):
     if cate == 'train':
         lr = 0.01
-        MILESTONES = [40, 80]
+        MILESTONES = [60, 90]
         EPOCHS = 120
     else:
         assert 0

@@ -31,21 +31,45 @@ TaskList = []
 # TaskReady = [0]*len(TaskList)
 
 # PB部分实验生成
-for net_class in NetClass:
-    net_module = net_class + '_quantize'
-    for activation_bit in ActivationRange:
-        for weight_bit in WeightRange:
-            PREFIX = 'PB_%s_3SIGMA_A%dW%d' % (net_class, activation_bit, weight_bit)
-            if activation_bit == 8 and weight_bit == 8:
-                CMD = './synthesize.py -g %%d -d cifar10 -n %s -t train_wo_power -ab 8 -wb 8 -p %s' % (net_module, PREFIX)
-            else:
-                CMD = './synthesize.py -g %%d -d cifar10 -n %s -t finetune_wo_power -ab %d -wb %d -w zoo/PB_%s_3SIGMA_A8W8_params.pth -p %s' % \
-                      (net_module, activation_bit, weight_bit, net_class, PREFIX)
-            CMD += (' 2>&1 > log/%s.log &' % PREFIX)
-            TaskList.append((CMD, PREFIX))
-TaskWait = [-1] + [0]*8 + [-1] + [9]*8 + [-1] + [18]*8
-TaskReady = [0]*len(TaskList)
+# for net_class in NetClass:
+#     net_module = net_class + '_quantize'
+#     for activation_bit in ActivationRange:
+#         for weight_bit in WeightRange:
+#             PREFIX = 'PB_%s_3SIGMA_A%dW%d' % (net_class, activation_bit, weight_bit)
+#             if activation_bit == 8 and weight_bit == 8:
+#                 CMD = './synthesize.py -g %%d -d cifar10 -n %s -t train_wo_power -ab 8 -wb 8 -p %s' % (net_module, PREFIX)
+#             else:
+#                 CMD = './synthesize.py -g %%d -d cifar10 -n %s -t finetune_wo_power -ab %d -wb %d -w zoo/PB_%s_3SIGMA_A8W8_params.pth -p %s' % \
+#                       (net_module, activation_bit, weight_bit, net_class, PREFIX)
+#             CMD += (' 2>&1 > log/%s.log &' % PREFIX)
+#             TaskList.append((CMD, PREFIX))
+# TaskWait = [-1] + [0]*8 + [-1] + [9]*8 + [-1] + [18]*8
+# TaskReady = [0]*len(TaskList)
 
+# PC部分实验生成
+# for net_class in NetClass:
+#     net_module = net_class + '_quantize'
+#     for activation_bit in ActivationRange:
+#         for weight_bit in WeightRange:
+#             PREFIX = 'PC_%s_3SIGMA_NONLINEAR_A%dW%d' % (net_class, activation_bit, weight_bit)
+#             CMD = './synthesize.py -g %%d -d cifar10 -n %s -t finetune_wo_power -ab %d -wb %d -w zoo/PB_%s_3SIGMA_A%dW%d_params.pth -p %s' % \
+#                   (net_module, activation_bit, weight_bit, net_class, activation_bit, weight_bit, PREFIX)
+#             CMD += (' 2>&1 > log/%s.log &' % PREFIX)
+#             TaskList.append((CMD, PREFIX))
+# TaskWait = [-1]*len(TaskList)
+# TaskReady = [0]*len(TaskList)
+
+# 额外的PC部分生成
+net_class = 'lenet'
+net_module = net_class + '_quantize'
+for activation_bit in ActivationRange:
+    PREFIX = 'PC_%s_3SIGMA_NONLINEAR_A%dW4' % (net_class, activation_bit)
+    CMD = './synthesize.py -g %%d -d cifar10 -n %s -t finetune_wo_power -ab %d -wb 4 -w zoo/PC_%s_3SIGMA_NONLINEAR_A%dW6_params.pth -p %s' % \
+          (net_module, activation_bit, net_class, activation_bit, PREFIX)
+    CMD += (' 2>&1 > log/%s.log &' % PREFIX)
+    TaskList.append((CMD, PREFIX))
+TaskWait = [-1]*len(TaskList)
+TaskReady = [0]*len(TaskList)
 
 # test
 for task, wait, ready in zip(TaskList, TaskWait, TaskReady):
