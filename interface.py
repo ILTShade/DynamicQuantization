@@ -11,9 +11,13 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('-n', '--net', help = 'select net')
 parser.add_argument('-w', '--weight', help = 'select weight file')
+parser.add_argument('-ab', '--activation_bit', help = 'select activation bit')
+parser.add_argument('-wb', '--weight_bit', help = 'select weight bit')
 args = parser.parse_args()
 assert args.net
 assert args.weight
+assert args.activation_bit
+assert args.weight_bit
 
 # crossbar的尺寸，PE的尺寸指成对出现的crossbar数量，BANK尺寸指BANK二维大小
 crossbar_size = 256
@@ -22,6 +26,8 @@ BANK_size = (4, 4)
 
 # net
 net_module = import_module(args.net)
+net_module.activation_bit = int(args.activation_bit)
+net_module.weight_bit = int(args.weight_bit)
 activation_bit = net_module.activation_bit
 weight_bit = net_module.weight_bit
 net = net_module.get_net()
@@ -70,6 +76,14 @@ with torch.no_grad():
             for i in range(weight_bit - 1):
                 weight_list.append(torch.fmod(value_weight, 2))
                 value_weight.div_(2).floor_()
+            # tmp print 0
+            total_space = 0
+            total_hrs = 0
+            for i in range(weight_bit - 1):
+                total_space += weight_list[i].numel()
+                total_hrs += torch.sum(weight_list[i]).item()
+            print(total_space, total_hrs)
+            continue
             # add sign
             sign_weight_list = []
             for tmp in weight_list:

@@ -55,7 +55,7 @@ def train_net(net, train_loader, test_loader, cate, device, prefix):
     # optimizer = optim.SGD(net.parameters(), lr = lr, weight_decay = WEIGHT_DECAY, momentum = MOMENTUM)
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones = MILESTONES, gamma = GAMMA)
     # initial test
-    # eval_net(net, test_loader, 0, device, 1)
+    # eval_net(net, test_loader, 0, device, 2)
     # epochs
     for epoch in range(EPOCHS):
         # train

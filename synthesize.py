@@ -13,6 +13,7 @@ parser.add_argument('-p', '--prefix', help = 'select prefix')
 parser.add_argument('-w', '--weight', help = 'select weight model')
 parser.add_argument('-wb', '--weight_bit', help = 'select weight bit')
 parser.add_argument('-ab', '--activation_bit', help = 'select activation bit')
+parser.add_argument('-pa', '--power_alpha', help = 'select alpha')
 args = parser.parse_args()
 assert args.gpu
 assert args.dataset
@@ -27,15 +28,25 @@ if 'finetune' in args.train:
     finetune_flag = True
     assert args.weight
     print('finetune from %s' % args.weight)
-print('train from none')
+else:
+    print('train from none')
 # 如果是定点模型，那么需要选择定点位宽
 quantize_flag = False
-if 'quantize'in args.net:
+if 'quantize' in args.net:
     quantize_flag = True
     assert args.weight_bit
     assert args.activation_bit
     print('fix model activation bit %s weight bit %s' % (args.activation_bit, args.weight_bit))
-print('float model')
+else:
+    print('float model')
+# 如果是power模型，那么需要选择系数
+power_flag = False
+if 'power' in args.net:
+    power_flag = True
+    assert args.power_alpha
+    print('power model with alpha %s' % args.power_alpha)
+else:
+    print('now power')
 
 # dataloader
 dataset_module = import_module(args.dataset)
@@ -48,6 +59,8 @@ if quantize_flag:
 net = net_module.get_net()
 # train
 train_module = import_module(args.train)
+if power_flag:
+    train_module.alpha = float(args.power_alpha)
 device = torch.device(f'cuda:{args.gpu}' if torch.cuda.is_available() else 'cpu')
 if finetune_flag:
     train_module.train_net(net, train_loader, test_loader, 'train', device, args.prefix, args.weight)

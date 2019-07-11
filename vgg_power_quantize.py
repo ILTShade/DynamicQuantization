@@ -5,22 +5,22 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-activation_bit = 4
-weight_bit = 8
+activation_bit = 0
+weight_bit = 0
 momentum = 0.707
 
-input_fix_config = {'input': {'mode': 'input'},
-                    'weight': {'mode': 'weight', 'qbit': weight_bit},
-                    'output': {'mode': 'activation_out', 'qbit': activation_bit, 'momentum': momentum},
-                    }
-hidden_fix_config = {'input': {'mode': 'activation_in', 'qbit': activation_bit, 'momentum': momentum},
-                     'weight': {'mode': 'weight', 'qbit': weight_bit},
-                     'output': {'mode': 'activation_out', 'qbit': activation_bit, 'momentum': momentum},
-                     }
 
 class VGGA(nn.Module):
     def __init__(self, num_classes):
         super(VGGA, self).__init__()
+        input_fix_config = {'input': {'mode': 'input'},
+                            'weight': {'mode': 'weight', 'qbit': weight_bit},
+                            'output': {'mode': 'activation_out', 'qbit': activation_bit, 'momentum': momentum},
+                            }
+        hidden_fix_config = {'input': {'mode': 'activation_in', 'qbit': activation_bit, 'momentum': momentum},
+                             'weight': {'mode': 'weight', 'qbit': weight_bit},
+                             'output': {'mode': 'activation_out', 'qbit': activation_bit, 'momentum': momentum},
+                             }
         # L1
         self.conv1 = quantize.QuantizePowerConv2d(input_fix_config, 3, 128, 3, padding = 1)
         self.bn1 = nn.BatchNorm2d(128)

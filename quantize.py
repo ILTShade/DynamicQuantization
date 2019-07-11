@@ -7,6 +7,8 @@ import torch.nn.functional as F
 
 # power scale record
 power_scale = 0
+power_weight_scale = 0
+power_activation_scale = 0
 # 在本次的实验假设中，对输入定点，对权重定点，对输出定点
 # 但是不要求前一层的输出一定是下一层的输入
 # 不需要保留定点的系数，保留相关结果即可
@@ -17,9 +19,12 @@ class QuantizeFunction(Function):
     def forward(ctx, input, fix_config, training, last_value = None):
         # 对于不同的模式，采用完全不同的量化方法
         global power_scale
+        global power_weight_scale
+        global power_activation_scale
         if fix_config['mode'] == 'input':
             # 此部分只对整个网络的输入做变换，数据范围是[0,1]
             power_scale = 1
+            power_activation_scale = 1
             return input
         elif fix_config['mode'] == 'activation_in':
             # 此部分对输入的激活做变换，默认输入的激活均为非负数，这样可以忽略负数的影响
@@ -30,6 +35,7 @@ class QuantizeFunction(Function):
             thres = 2 ** (fix_config['qbit']) - 1
             output = torch.div(input, scale)
             power_scale = scale**2
+            power_activation_scale = scale
             assert torch.min(output).item() >= 0
             return output.clamp_(0, 1).mul_(thres).round_().div(thres/scale)
         elif fix_config['mode'] == 'weight':
@@ -39,6 +45,7 @@ class QuantizeFunction(Function):
             thres = 2 ** (fix_config['qbit'] - 1) - 1
             output = torch.div(input, scale)
             power_scale *= scale
+            power_weight_scale = scale
             return output.clamp_(-1, 1).mul_(thres).round_().div(thres/scale)
         elif fix_config['mode'] == 'activation_out':
             # 此部分对输出的激活做变换，输出的激活有正有负，可能需要采用非均匀量化的方式
@@ -162,17 +169,42 @@ class QuantizePowerConv2d(nn.Module):
         #                           self.conv2d.dilation,
         #                           self.conv2d.groups,
         #                           )
-        # else:
-        square_sum = F.conv2d(torch.mul(quantize_input, quantize_input),
-                              torch.abs(quantize_weight),
-                              None,
-                              self.conv2d.stride,
-                              self.conv2d.padding,
-                              self.conv2d.dilation,
-                              self.conv2d.groups,
-                              )
-        square_sum = square_sum / power_scale
-        power.add_(torch.sum(square_sum))
+        if self.training:
+            square_sum = F.conv2d(torch.mul(quantize_input, quantize_input),
+                                  torch.abs(quantize_weight),
+                                  None,
+                                  self.conv2d.stride,
+                                  self.conv2d.padding,
+                                  self.conv2d.dilation,
+                                  self.conv2d.groups,
+                                  )
+            square_sum = square_sum / power_scale
+            power.add_(torch.sum(square_sum))
+        else:
+            if self.input_fix_config['mode'] == 'input':
+                quantize_input.div_(power_activation_scale/(2**8-1))
+                activation_bit = 8
+            else:
+                quantize_input.div_(power_activation_scale/(2**self.input_fix_config['qbit']-1))
+                activation_bit = self.input_fix_config['qbit']
+            quantize_weight.div_(power_weight_scale/(2**(self.weight_fix_config['qbit']-1)-1)).abs_()
+            weight_bit = self.weight_fix_config['qbit'] - 1
+            for i in range(activation_bit):
+                tmp_quantize_input = torch.fmod(quantize_input, 2).round()
+                quantize_input.div_(2).floor_()
+                record_quantize_weight = quantize_weight.clone()
+                for j in range(weight_bit):
+                    tmp_quantize_weight = torch.fmod(record_quantize_weight, 2).round()
+                    record_quantize_weight.div_(2).floor_()
+                    square_sum = F.conv2d(tmp_quantize_input,
+                                          tmp_quantize_weight,
+                                          None,
+                                          self.conv2d.stride,
+                                          self.conv2d.padding,
+                                          self.conv2d.dilation,
+                                          self.conv2d.groups,
+                                          )
+                    power.add_(torch.sum(square_sum))
         return quantize_output
     def extra_repr(self):
         extra_def = []

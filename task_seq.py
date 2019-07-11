@@ -60,20 +60,41 @@ TaskList = []
 # TaskReady = [0]*len(TaskList)
 
 # 额外的PC部分生成
-net_class = 'lenet'
-net_module = net_class + '_quantize'
-for activation_bit in ActivationRange:
-    PREFIX = 'PC_%s_3SIGMA_NONLINEAR_A%dW4' % (net_class, activation_bit)
-    CMD = './synthesize.py -g %%d -d cifar10 -n %s -t finetune_wo_power -ab %d -wb 4 -w zoo/PC_%s_3SIGMA_NONLINEAR_A%dW6_params.pth -p %s' % \
-          (net_module, activation_bit, net_class, activation_bit, PREFIX)
-    CMD += (' 2>&1 > log/%s.log &' % PREFIX)
-    TaskList.append((CMD, PREFIX))
+# net_class = 'lenet'
+# net_module = net_class + '_quantize'
+# for activation_bit in ActivationRange:
+#     PREFIX = 'PC_%s_3SIGMA_NONLINEAR_A%dW4' % (net_class, activation_bit)
+#     CMD = './synthesize.py -g %%d -d cifar10 -n %s -t finetune_wo_power -ab %d -wb 4 -w zoo/PC_%s_3SIGMA_NONLINEAR_A%dW6_params.pth -p %s' % \
+#           (net_module, activation_bit, net_class, activation_bit, PREFIX)
+#     CMD += (' 2>&1 > log/%s.log &' % PREFIX)
+#     TaskList.append((CMD, PREFIX))
+# TaskWait = [-1]*len(TaskList)
+# TaskReady = [0]*len(TaskList)
+
+# PD部分实验生成
+alpha_range = ['6e-10']
+scale_list = {'lenet': 72, 'vgg': 1, 'resnet': 15}
+for net_class in NetClass:
+    net_module = net_class + '_power_quantize'
+    for activation_bit in ActivationRange:
+        for weight_bit in WeightRange:
+            if activation_bit != 8 or weight_bit != 8:
+                continue
+            if net_class != 'vgg':
+                continue
+            for alpha in alpha_range:
+                PREFIX = 'PD_%s_3SIGMA_NONLINEAR_POWER%s_A%dW%d' % (net_class, alpha, activation_bit, weight_bit)
+                CMD = './synthesize.py -g %%d -d cifar10 -n %s -t finetune_wi_power -ab %d -wb %d -w zoo/PC_%s_3SIGMA_NONLINEAR_A%dW%d_params.pth -pa %s -p %s' % \
+                      (net_module, activation_bit, weight_bit, net_class, activation_bit, weight_bit, str(scale_list[net_class] * float(alpha)), PREFIX)
+                CMD += (' 2>&1 > log/%s.log &' % PREFIX)
+                TaskList.append((CMD, PREFIX))
 TaskWait = [-1]*len(TaskList)
 TaskReady = [0]*len(TaskList)
 
 # test
 for task, wait, ready in zip(TaskList, TaskWait, TaskReady):
     print(task, wait, ready)
+xxx
 
 OccupyList = ['', '', '', '']
 while True:

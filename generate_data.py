@@ -41,7 +41,7 @@ f.write('data quantize\n')
 T = torch.clamp(D[0]/(3*torch.std(D[0])), -1, 1).numpy().astype(np.float64)
 T = T.flatten()
 np.random.shuffle(T)
-T = T[0:int(len(T)/20)]
+T = T[0:int(len(T)/100)]
 k = 5
 B = np.round(T*(2**(k-1)-1))/(2**(k-1)-1)
 E = np.abs(T-B)
