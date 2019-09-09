@@ -100,7 +100,7 @@ def eval_net(net, test_loader, epoch, device, show_sche):
             _, predicted = torch.max(outputs, 1)
             test_correct += (predicted == labels).sum().item()
     print('%s After epoch %d, accuracy is %2.4f, power is %f' % \
-          (time.asctime(time.localtime(time.time())), epoch, test_correct / test_total, power_total))
+          (time.asctime(time.localtime(time.time())), epoch, test_correct / test_total, power_total * 1.5e-10))
     if show_sche == 0:
         tensorboard_writer.add_scalar('test_acc', test_correct / test_total, epoch)
         tensorboard_writer.add_scalar('power', power_total, epoch)

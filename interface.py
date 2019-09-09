@@ -38,14 +38,19 @@ ASIC_ARRAY = []
 module_define = collections.OrderedDict()
 input_size = 32
 layer_count = 0
+size_list = [32, 32, 16, 16, 8, 8, 4]
+total_cal = 0
 with torch.no_grad():
     for name, module in net.named_modules():
+        if layer_count >= len(size_list):
+            break
+        input_size = size_list[layer_count]
         if isinstance(module, nn.MaxPool2d):
             output_size = int(input_size / 2)
         else:
             output_size = input_size
         if isinstance(module, quantize.QuantizeConv2d) or isinstance(module, quantize.QuantizePowerConv2d):
-            output_size = int(math.ceil((input_size + 2*module.conv2d.padding[0] - module.conv2d.kernel_size[0])/module.conv2d.stride[0]) + 1)
+            output_size = int(math.floor((input_size + 2*module.conv2d.padding[0] - module.conv2d.kernel_size[0])/module.conv2d.stride[0]) + 1)
         if isinstance(module, quantize.QuantizeConv2d) or isinstance(module, quantize.QuantizePowerConv2d):
             weight = module.conv2d.weight
             scale = torch.max(torch.abs(weight))
@@ -65,6 +70,7 @@ with torch.no_grad():
             tmp_define['Weightbit'] = weight_bit
             tmp_define['Outputbit'] = activation_bit
             module_define[name] = tmp_define
+            total_cal += ((output_size)**2)*module.conv2d.out_channels*module.conv2d.in_channels*module.conv2d.kernel_size[0]*module.conv2d.kernel_size[1]*2
             print('generate %s' % name)
             # test
             # weight = torch.arange(49.).reshape((7,7)) - 30
@@ -77,13 +83,13 @@ with torch.no_grad():
                 weight_list.append(torch.fmod(value_weight, 2))
                 value_weight.div_(2).floor_()
             # tmp print 0
-            total_space = 0
-            total_hrs = 0
-            for i in range(weight_bit - 1):
-                total_space += weight_list[i].numel()
-                total_hrs += torch.sum(weight_list[i]).item()
-            print(total_space, total_hrs)
-            continue
+            # total_space = 0
+            # total_hrs = 0
+            # for i in range(weight_bit - 1):
+            #     total_space += weight_list[i].numel()
+            #     total_hrs += torch.sum(weight_list[i]).item()
+            # print(total_space, total_hrs)
+            # continue
             # add sign
             sign_weight_list = []
             for tmp in weight_list:
@@ -143,6 +149,6 @@ with torch.no_grad():
                 ASIC_ARRAY.append((layer_info, BANK_array))
             layer_count += 1
         input_size = output_size
-
     torch.save(ASIC_ARRAY, './zoo/mnsim_weight.pt')
     torch.save(module_define, './zoo/mnsim_net.pt')
+print(total_cal)

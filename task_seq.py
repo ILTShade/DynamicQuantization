@@ -78,10 +78,6 @@ for net_class in NetClass:
     net_module = net_class + '_power_quantize'
     for activation_bit in ActivationRange:
         for weight_bit in WeightRange:
-            if activation_bit != 8 or weight_bit != 8:
-                continue
-            if net_class != 'vgg':
-                continue
             for alpha in alpha_range:
                 PREFIX = 'PD_%s_3SIGMA_NONLINEAR_POWER%s_A%dW%d' % (net_class, alpha, activation_bit, weight_bit)
                 CMD = './synthesize.py -g %%d -d cifar10 -n %s -t finetune_wi_power -ab %d -wb %d -w zoo/PC_%s_3SIGMA_NONLINEAR_A%dW%d_params.pth -pa %s -p %s' % \

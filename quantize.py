@@ -32,12 +32,12 @@ class QuantizeFunction(Function):
                 momentum = fix_config['momentum']
                 last_value.data[0] = momentum * last_value.item() + (1 - momentum) * torch.max(torch.abs(input)).item()
             scale = last_value.item()
-            thres = 2 ** (fix_config['qbit']) - 1
+            thres = 2 ** (fix_config['qbit'] - 1) - 1
             output = torch.div(input, scale)
             power_scale = scale**2
             power_activation_scale = scale
             assert torch.min(output).item() >= 0
-            return output.clamp_(0, 1).mul_(thres).round_().div(thres/scale)
+            return output.clamp_(-1, 1).mul_(thres).round_().div(thres/scale)
         elif fix_config['mode'] == 'weight':
             # 此部分对权重做变换，直接采用最大值，可以尽可能少地产生误差，网络权重有正有负
             scale = torch.max(torch.abs(input)).item()
@@ -55,17 +55,14 @@ class QuantizeFunction(Function):
                 momentum = fix_config['momentum']
                 last_value.data[0] = momentum * last_value.item() + (1 - momentum) * (3*torch.std(input).item() + torch.abs(torch.mean(input)).item())
             scale = last_value.item()
-            # scale = last_value.item()
-            # thres = 2 ** (fix_config['qbit'] - 1) - 1
-            # output = torch.div(input, scale)
-            # return output.clamp_(-1, 1).mul_(thres).round_().div(thres/scale)
-            ratio = 3.8
-            thres = 2 ** (fix_config['qbit'])
-            output = torch.div(input, scale)
-            output = output.mul_(ratio).sigmoid_().mul_(thres).round_().clamp_(1, thres - 1).div_(thres).reciprocal_().sub_(1).log_().div(-ratio/scale)
-            thres = 2 ** (2 * fix_config['qbit'] - 1) - 1
+            thres = 2 ** (fix_config['qbit'] - 1) - 1
             output = torch.div(input, scale)
             return output.clamp_(-1, 1).mul_(thres).round_().div(thres/scale)
+            # ratio = 3.8
+            # thres = 2 ** (fix_config['qbit'])
+            # output = torch.div(input, scale)
+            # output = output.mul_(ratio).sigmoid_().mul_(thres).round_().clamp_(1, thres - 1).div_(thres).reciprocal_().sub_(1).log_().div(-ratio/scale)
+            # return output
         else:
             raise NotImplementedError
     @staticmethod
@@ -181,6 +178,7 @@ class QuantizePowerConv2d(nn.Module):
             square_sum = square_sum / power_scale
             power.add_(torch.sum(square_sum))
         else:
+            # RR = self.conv2d.kernel_size[0] * self.conv2d.kernel_size[1] * self.conv2d.in_channels * 0.005
             if self.input_fix_config['mode'] == 'input':
                 quantize_input.div_(power_activation_scale/(2**8-1))
                 activation_bit = 8
@@ -194,7 +192,7 @@ class QuantizePowerConv2d(nn.Module):
                 quantize_input.div_(2).floor_()
                 record_quantize_weight = quantize_weight.clone()
                 for j in range(weight_bit):
-                    tmp_quantize_weight = torch.fmod(record_quantize_weight, 2).round()
+                    tmp_quantize_weight = torch.fmod(record_quantize_weight, 2).round()*4+1
                     record_quantize_weight.div_(2).floor_()
                     square_sum = F.conv2d(tmp_quantize_input,
                                           tmp_quantize_weight,
@@ -204,7 +202,8 @@ class QuantizePowerConv2d(nn.Module):
                                           self.conv2d.dilation,
                                           self.conv2d.groups,
                                           )
-                    power.add_(torch.sum(square_sum))
+                    RR = torch.std(square_sum).item() / 10
+                    power.add_(torch.sum(square_sum * (RR+1)))
         return quantize_output
     def extra_repr(self):
         extra_def = []
