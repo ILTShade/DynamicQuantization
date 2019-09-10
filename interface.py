@@ -38,6 +38,11 @@ ASIC_ARRAY = []
 module_define = collections.OrderedDict()
 input_size = 32
 layer_count = 0
+# alexnet
+# size_list = [32, 8, 4, 4, 4]
+# lenet
+# size_list = [32, 14, 5]
+# vgg
 size_list = [32, 32, 16, 16, 8, 8, 4]
 total_cal = 0
 with torch.no_grad():
@@ -149,6 +154,8 @@ with torch.no_grad():
                 ASIC_ARRAY.append((layer_info, BANK_array))
             layer_count += 1
         input_size = output_size
-    torch.save(ASIC_ARRAY, './zoo/mnsim_weight.pt')
-    torch.save(module_define, './zoo/mnsim_net.pt')
+    # torch.save(ASIC_ARRAY, './zoo/mnsim_structure_alexnet.pt')
+    # torch.save(ASIC_ARRAY, './zoo/mnsim_structure_lenet.pt')
+    torch.save(ASIC_ARRAY, './zoo/mnsim_structure_vgg.pt')
+    # torch.save(module_define, './zoo/mnsim_net.pt')
 print(total_cal)
